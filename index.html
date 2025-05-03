@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GLTF Model Viewer with Auto-Rotation (Z-Axis)</title>
+    <style>
+        /* Basic reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        /* Make body take full height and use flexbox for centering */
+        html, body {
+            height: 100%;
+            overflow: hidden; /* Prevent scrollbars */
+            font-family: sans-serif;
+        }
+        body {
+            display: flex;
+            justify-content: center; /* Center horizontally */
+            align-items: center; /* Center vertically */
+            background-color: #f0f0f0; /* Light background */
+        }
+        /* Style the container for the renderer */
+        #container {
+            width: 90vw; /* Use viewport width */
+            height: 90vh; /* Use viewport height */
+            max-width: 1200px; /* Optional: max width */
+            max-height: 800px; /* Optional: max height */
+            background-color: #ffffff; /* White background for the canvas area */
+            border-radius: 8px; /* Rounded corners */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* Subtle shadow */
+            position: relative; /* Needed for potential overlays */
+        }
+        /* Style the canvas */
+        canvas {
+            display: block; /* Remove extra space below canvas */
+            width: 100%;
+            height: 100%;
+            border-radius: 8px; /* Match container */
+        }
+        /* Loading message style */
+        #loading-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #555;
+            font-size: 1.2em;
+            display: none; /* Hidden by default */
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="loading-message">Loading model...</div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        // Import necessary modules from three.js
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- Global variables ---
+        let scene, camera, renderer, controls;
+        let container, loadingMessage;
+        let model; // Declare model globally to access it in animate()
+
+        // --- Initialization ---
+        function init() {
+            // Get the container element
+            container = document.getElementById('container');
+            loadingMessage = document.getElementById('loading-message');
+            loadingMessage.style.display = 'block'; // Show loading message
+
+            // 1. Scene: The container for all 3D objects
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xffffff); // White background
+
+            // 2. Camera: Defines the viewpoint
+            const aspect = container.clientWidth / container.clientHeight;
+            camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
+            camera.position.set(0, 1, 5); // Adjust initial camera position as needed
+
+            // 3. Renderer: Draws the scene onto the canvas
+            renderer = new THREE.WebGLRenderer({ antialias: true }); // Enable anti-aliasing
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio); // Adjust for high-DPI screens
+            container.appendChild(renderer.domElement); // Add canvas to the container
+
+            // 4. Controls: Allow user interaction (orbit, zoom, pan)
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true; // Smooth camera movement
+            controls.dampingFactor = 0.05;
+            controls.screenSpacePanning = false; // Keep panning relative to the ground plane
+            controls.minDistance = 1; // Minimum zoom distance
+            controls.maxDistance = 50; // Maximum zoom distance
+            // controls.target.set(0, 0, 0); // Optional: Set the point the camera orbits around
+
+            // 5. Lighting: Illuminate the scene
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8); // Soft white light
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5); // Stronger directional light
+            directionalLight.position.set(5, 10, 7.5);
+            scene.add(directionalLight);
+
+            // 6. Load the GLTF Model
+            const loader = new GLTFLoader();
+            const modelPath = 'badge.gltf'; // <<< IMPORTANT: Make sure this path is correct!
+
+            loader.load(
+                modelPath,
+                // --- Success callback ---
+                function (gltf) {
+                    console.log('Model loaded successfully:', gltf);
+                    loadingMessage.style.display = 'none'; // Hide loading message
+
+                    model = gltf.scene; // Assign the loaded scene to the global model variable
+
+                    // --- Optional: Center and scale the model ---
+                    const box = new THREE.Box3().setFromObject(model);
+                    const center = box.getCenter(new THREE.Vector3());
+                    const size = box.getSize(new THREE.Vector3());
+
+                    // Scale model to fit within a certain size (e.g., 5 units)
+                    const maxDim = Math.max(size.x, size.y, size.z);
+                    const scale = 5.0 / maxDim; // Adjust '5.0' as needed
+                    model.scale.set(scale, scale, scale);
+
+                    // Recalculate box and center after scaling
+                    box.setFromObject(model);
+                    box.getCenter(center);
+
+                    // Move model so its center is at the origin
+                    model.position.sub(center);
+
+                    // Add the loaded model to the scene
+                    scene.add(model);
+
+                    // Adjust camera target if needed (optional)
+                    // controls.target.copy(center); // Center orbit controls on the model's center
+                    controls.update(); // Update controls after changing target
+
+                    console.log('Model added to scene.');
+                },
+                // --- Progress callback (optional) ---
+                function (xhr) {
+                    const percentComplete = (xhr.loaded / xhr.total) * 100;
+                    console.log(Math.round(percentComplete) + '% loaded');
+                    // You could update the loading message here if desired
+                    // loadingMessage.textContent = `Loading model... ${Math.round(percentComplete)}%`;
+                },
+                // --- Error callback ---
+                function (error) {
+                    console.error('Error loading GLTF model:', error);
+                    loadingMessage.textContent = 'Error loading model. Check console.';
+                    loadingMessage.style.color = 'red';
+
+                    // --- Fallback: Add a simple cube if loading fails ---
+                    addFallbackCube();
+                }
+            );
+
+            // --- Handle window resizing ---
+            window.addEventListener('resize', onWindowResize, false);
+
+            // --- Start the animation loop ---
+            animate();
+        }
+
+        // --- Fallback Object ---
+        function addFallbackCube() {
+            // Add a simple cube if the model fails to load
+            const geometry = new THREE.BoxGeometry(1, 1, 1);
+            const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 }); // Green cube
+            const cube = new THREE.Mesh(geometry, material);
+            scene.add(cube);
+            console.log("Fallback cube added.");
+        }
+
+
+        // --- Animation Loop ---
+        function animate() {
+            // Request the next frame
+            requestAnimationFrame(animate);
+
+            // --- CHANGED: Auto-rotate the model around Z-axis ---
+            if (model) { // Check if the model has been loaded
+                model.rotation.z += 0.005; // Rotate around the Z-axis. Adjust speed if needed.
+            }
+            // --- End CHANGED ---
+
+            // Update controls (required if enableDamping is true)
+            controls.update();
+
+            // Render the scene from the camera's perspective
+            renderer.render(scene, camera);
+        }
+
+        // --- Resize Handler ---
+        function onWindowResize() {
+            // Update camera aspect ratio
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix(); // Apply changes
+
+            // Update renderer size
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        // --- Start everything ---
+        init();
+
+    </script>
+</body>
+</html>
