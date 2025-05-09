@@ -1,0 +1,12 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: az-3d-app
+  description: 3D badge viewer hosted on Azure Static Web Apps
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: wspCoder29/az-3d-app
+spec:
+  type: website
+  lifecycle: experimental
+  owner: guests
