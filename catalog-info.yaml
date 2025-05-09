@@ -6,7 +6,12 @@ metadata:
   annotations:
     backstage.io/techdocs-ref: dir:.
     github.com/project-slug: wspCoder29/az-3d-app
+  links:
+    - url: https://victorious-bay-0d6367610.6.azurestaticapps.net/
+      title: Open App
+      icon: website
 spec:
   type: website
   lifecycle: experimental
   owner: guests
+
